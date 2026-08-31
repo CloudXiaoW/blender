@@ -22,6 +22,99 @@
 #import <AppKit/AppKit.h>
 #import <WebKit/WebKit.h>
 
+/**
+ * Blender's AppKit menubar has no Edit → Cut/Copy/Paste items, so WKWebView
+ * never receives the usual Cmd-key equivalents. Route them while the WebView
+ * (or one of its private content views) is first responder.
+ */
+@interface AgentWKWebView : WKWebView
+@end
+
+/* NSResponder editing actions (declared so the ObjC compiler sees them). */
+@interface NSResponder (AgentWKWebViewEditing)
+- (void)copy:(id)sender;
+- (void)paste:(id)sender;
+- (void)cut:(id)sender;
+- (void)selectAll:(id)sender;
+- (void)undo:(id)sender;
+- (void)redo:(id)sender;
+@end
+
+@implementation AgentWKWebView
+
+- (BOOL)agent_isEditingTarget
+{
+  NSResponder *fr = self.window.firstResponder;
+  if (fr == nil) {
+    return NO;
+  }
+  if (fr == self) {
+    return YES;
+  }
+  if ([fr isKindOfClass:[NSView class]]) {
+    return [(NSView *)fr isDescendantOf:self];
+  }
+  return NO;
+}
+
+- (BOOL)performKeyEquivalent:(NSEvent *)event
+{
+  if (event.type != NSEventTypeKeyDown || ![self agent_isEditingTarget]) {
+    return [super performKeyEquivalent:event];
+  }
+
+  const NSEventModifierFlags mods = event.modifierFlags &
+                                   NSEventModifierFlagDeviceIndependentFlagsMask;
+  const BOOL cmd = (mods & NSEventModifierFlagCommand) != 0;
+  const BOOL ctrl = (mods & NSEventModifierFlagControl) != 0;
+  const BOOL shift = (mods & NSEventModifierFlagShift) != 0;
+  const BOOL alt = (mods & NSEventModifierFlagOption) != 0;
+  /* macOS edit chords use Command; accept Control too (users often say Ctrl). */
+  if (alt || !(cmd || ctrl)) {
+    return [super performKeyEquivalent:event];
+  }
+
+  NSString *chars = event.charactersIgnoringModifiers.lowercaseString;
+  if (chars.length != 1) {
+    return [super performKeyEquivalent:event];
+  }
+
+  switch ([chars characterAtIndex:0]) {
+    case 'c':
+      [self copy:nil];
+      return YES;
+    case 'v':
+      [self paste:nil];
+      return YES;
+    case 'x':
+      [self cut:nil];
+      return YES;
+    case 'a':
+      [self selectAll:nil];
+      return YES;
+    case 'z':
+      if (shift) {
+        [self redo:nil];
+      }
+      else {
+        [self undo:nil];
+      }
+      return YES;
+    default:
+      break;
+  }
+  return [super performKeyEquivalent:event];
+}
+
+- (void)mouseDown:(NSEvent *)event
+{
+  /* Ensure subsequent Cmd-chords hit this view's responder chain. */
+  [self.window makeFirstResponder:self];
+  [super mouseDown:event];
+}
+
+@end
+
 namespace blender::ed::agent {
 
 /**
@@ -86,7 +179,7 @@ class CocoaWebView : public AgentWebView {
           forMainFrameOnly:YES];
       [config.userContentController addUserScript:script];
       [script release];
-      web_view_ = [[WKWebView alloc] initWithFrame:NSZeroRect configuration:config];
+      web_view_ = [[AgentWKWebView alloc] initWithFrame:NSZeroRect configuration:config];
       [config release];
       web_view_.autoresizingMask = NSViewNotSizable;
       if ([web_view_ respondsToSelector:@selector(setWantsLayer:)]) {
