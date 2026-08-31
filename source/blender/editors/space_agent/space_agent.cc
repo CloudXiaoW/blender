@@ -73,10 +73,11 @@ static void agent_exit(wmWindowManager * /*wm*/, ScrArea *area)
   if (area == nullptr || area->spacetype != SPACE_AGENT) {
     return;
   }
+  /* Tear down the native WebView while wmWindow is still alive. Waiting until
+   * SpaceLink free (during Main teardown) leaves a dangling draw-callback
+   * window pointer and crashes on quit. */
   SpaceAgent *sagent = static_cast<SpaceAgent *>(area->spacedata.first);
-  if (ed::agent::AgentWebView *view = agent_webview_get(sagent)) {
-    view->set_visible(false);
-  }
+  agent_webview_free(sagent);
 }
 
 static SpaceLink *agent_duplicate(SpaceLink *sl)

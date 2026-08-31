@@ -6,6 +6,8 @@
 #include "webview/webview.hh"
 
 #include "BKE_context.hh"
+#include "BKE_global.hh"
+#include "BKE_main.hh"
 #include "BKE_screen.hh"
 #include "BLI_listbase.hh"
 #include "BLI_rect.hh"
@@ -131,7 +133,10 @@ class CocoaWebView : public AgentWebView {
   {
     unregister_draw_cb();
     if (web_view_ != nil) {
-      [web_view_ removeFromSuperview];
+      /* Window may already be torn down during Blender quit. */
+      if (web_view_.superview != nil) {
+        [web_view_ removeFromSuperview];
+      }
       [web_view_ release];
       web_view_ = nil;
     }
@@ -284,12 +289,37 @@ class CocoaWebView : public AgentWebView {
     draw_cb_ = WM_draw_cb_activate(win, window_draw_cb, this);
   }
 
+  /** True when #win_ is still owned by a live WindowManager. */
+  static bool window_is_alive(const wmWindow *win)
+  {
+    if (win == nullptr || G_MAIN == nullptr) {
+      return false;
+    }
+    for (wmWindowManager *wm = static_cast<wmWindowManager *>(G_MAIN->wm.first); wm != nullptr;
+         wm = static_cast<wmWindowManager *>(wm->id.next))
+    {
+      for (const wmWindow &candidate : wm->windows) {
+        if (&candidate == win) {
+          return win->runtime != nullptr;
+        }
+      }
+    }
+    return false;
+  }
+
   void unregister_draw_cb()
   {
-    if (draw_cb_ != nullptr && win_ != nullptr) {
+    if (draw_cb_ == nullptr) {
+      win_ = nullptr;
+      return;
+    }
+    /* During Main teardown the wmWindow may already be gone; the drawcalls
+     * list dies with it, so skipping exit only avoids a use-after-free. */
+    if (window_is_alive(win_)) {
       WM_draw_cb_exit(win_, draw_cb_);
     }
     draw_cb_ = nullptr;
+    win_ = nullptr;
   }
 
   WKWebView *web_view_ = nil;
