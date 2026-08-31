@@ -339,6 +339,11 @@ int WM_window_native_pixel_y(const wmWindow *win);
 int2 WM_window_native_pixel_size(const wmWindow *win);
 
 void WM_window_native_pixel_coords(const wmWindow *win, int *x, int *y);
+
+/**
+ * Native OS window handle (NSWindow * on macOS, HWND on Windows). For Agent WebView overlay.
+ */
+void *WM_window_os_handle(const wmWindow *win);
 /**
  * Return true when this session draws its own window decorations, whether or not any particular
  * window currently shows them (see #WM_window_is_csd).

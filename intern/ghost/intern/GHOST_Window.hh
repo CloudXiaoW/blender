@@ -264,7 +264,7 @@ class GHOST_Window : public GHOST_IWindow {
    * Returns the associated OS object/handle.
    * \return The associated OS object/handle.
    */
-  virtual void *getOSWindow() const;
+  virtual void *getOSWindow() const override;
 
   /**
    * Returns acceptance of the dropped object.

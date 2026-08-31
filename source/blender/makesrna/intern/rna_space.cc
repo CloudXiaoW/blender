@@ -189,6 +189,12 @@ const EnumPropertyItem rna_enum_space_type_items[] = {
      ICON_PROJECT,
      "Project Setup",
      "Manage the current Blender project"},
+    RNA_ENUM_ITEM_HEADING(N_("Agent"), nullptr),
+    {SPACE_AGENT,
+     "AGENT",
+     ICON_INFO,
+     "Agent",
+     "DeepSeek conversation (embedded WebView)"},
     {0, nullptr, 0, nullptr, nullptr},
 };
 
@@ -824,6 +830,8 @@ static StructRNA *rna_Space_refine(PointerRNA *ptr)
       return RNA_SpaceSpreadsheet;
     case SPACE_PROJECT:
       return RNA_SpaceProject;
+    case SPACE_AGENT:
+      return RNA_SpaceAgent;
 
       /* Currently no type info. */
     case SPACE_SCRIPT:
@@ -9711,6 +9719,22 @@ static void rna_def_space_project(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Active Section", "Choose the category of options to display");
 }
 
+static void rna_def_space_agent(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "SpaceAgent", "Space");
+  RNA_def_struct_sdna(srna, "SpaceAgent");
+  RNA_def_struct_ui_text(srna, "Space Agent", "Agent editor showing the DeepSeek conversation");
+
+  prop = RNA_def_property(srna, "url", PROP_STRING, PROP_NONE);
+  RNA_def_property_string_maxlength(prop, SPACE_AGENT_URL_MAX);
+  RNA_def_property_ui_text(
+      prop, "URL", "Conversation page loaded in the Agent WebView (use embed=blender-agent)");
+  RNA_def_property_update(prop, NC_SPACE, nullptr);
+}
+
 void RNA_def_space(BlenderRNA *brna)
 {
   rna_def_space(brna);
@@ -9740,6 +9764,7 @@ void RNA_def_space(BlenderRNA *brna)
   rna_def_space_clip(brna);
   rna_def_space_spreadsheet(brna);
   rna_def_space_project(brna);
+  rna_def_space_agent(brna);
 }
 
 }  // namespace blender

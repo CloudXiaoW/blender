@@ -262,6 +262,9 @@ static eSpace_Type rna_Space_refine_reverse(StructRNA *srna)
   if (srna == RNA_SpaceProject) {
     return SPACE_PROJECT;
   }
+  if (srna == RNA_SpaceAgent) {
+    return SPACE_AGENT;
+  }
   return SPACE_EMPTY;
 }
 

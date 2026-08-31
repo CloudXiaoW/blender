@@ -3137,6 +3137,15 @@ void WM_window_native_pixel_coords(const wmWindow *win, int *x, int *y)
   *y *= fac;
 }
 
+void *WM_window_os_handle(const wmWindow *win)
+{
+  if (win == nullptr || win->runtime == nullptr || win->runtime->ghostwin == nullptr) {
+    return nullptr;
+  }
+  GHOST_IWindow *ghost_window = static_cast<GHOST_IWindow *>(win->runtime->ghostwin);
+  return ghost_window->getOSWindow();
+}
+
 static void wm_window_csd_title_redraw_tag(wmWindowManager *wm, wmWindow *win)
 {
   /* Redraw the title bar if necessary. */

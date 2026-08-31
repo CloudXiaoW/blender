@@ -82,6 +82,7 @@ _modules = [
     "space_node",
     "space_outliner",
     "space_project",
+    "space_agent",
     "space_properties",
     "space_sequencer",
     "space_spreadsheet",

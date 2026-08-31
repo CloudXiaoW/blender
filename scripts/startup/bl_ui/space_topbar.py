@@ -37,6 +37,9 @@ class TOPBAR_HT_upper_bar(Header):
         else:
             layout.operator("screen.back_to_previous", icon='SCREEN_BACK', text="Back to Previous")
 
+        layout.separator(type='LINE')
+        layout.operator("screen.agent_new", text="New Agent", icon='INFO')
+
     def draw_right(self, context):
         layout = self.layout
 

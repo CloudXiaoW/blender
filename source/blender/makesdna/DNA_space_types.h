@@ -1322,4 +1322,26 @@ struct SpaceProject {
 
 /** \} */
 
+/* -------------------------------------------------------------------- */
+/** \name Agent (embedded DeepSeek conversation)
+ * \{ */
+
+#define SPACE_AGENT_URL_MAX 1024
+
+struct SpaceAgent {
+  SpaceLink *next = nullptr, *prev = nullptr;
+  ListBaseT<ARegion> regionbase = {nullptr, nullptr};
+  char spacetype = 0;
+  char link_flag = 0;
+  char _pad0[6] = {};
+  /* End 'SpaceLink' header. */
+
+  /** Conversation URL loaded into the Agent WebView (`?embed=blender-agent`). */
+  char url[1024] = {};
+  int flag = 0;
+  char _pad1[4] = {};
+};
+
+/** \} */
+
 }  // namespace blender

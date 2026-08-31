@@ -58,6 +58,7 @@ struct SpaceNla;
 struct SpaceNode;
 struct SpaceOutliner;
 struct SpaceProject;
+struct SpaceAgent;
 struct SpaceProperties;
 struct SpaceSeq;
 struct SpaceSpreadsheet;
@@ -239,6 +240,7 @@ SpaceClip *CTX_wm_space_clip(const bContext *C);
 SpaceTopBar *CTX_wm_space_topbar(const bContext *C);
 SpaceSpreadsheet *CTX_wm_space_spreadsheet(const bContext *C);
 SpaceProject *CTX_wm_space_project(const bContext *C);
+SpaceAgent *CTX_wm_space_agent(const bContext *C);
 
 void CTX_wm_manager_set(bContext *C, wmWindowManager *wm);
 void CTX_wm_window_set(bContext *C, wmWindow *win);

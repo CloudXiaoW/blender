@@ -163,6 +163,7 @@ const uchar *get_color_ptr(const bTheme *btheme, int spacetype, int colorid)
           break;
         case SPACE_USERPREF:
         case SPACE_PROJECT:
+        case SPACE_AGENT:
           ts = &btheme->space_preferences;
           break;
         case SPACE_CONSOLE:
@@ -228,7 +229,11 @@ const uchar *get_color_ptr(const bTheme *btheme, int spacetype, int colorid)
           break;
         case TH_TEXT:
           if (ELEM(g_theme_state.regionid, RGN_TYPE_UI, RGN_TYPE_TOOLS) ||
-              ELEM(g_theme_state.spacetype, SPACE_PROPERTIES, SPACE_USERPREF, SPACE_PROJECT))
+              ELEM(g_theme_state.spacetype,
+                   SPACE_PROPERTIES,
+                   SPACE_USERPREF,
+                   SPACE_PROJECT,
+                   SPACE_AGENT))
           {
             cp = btheme->tui.panel_text;
           }

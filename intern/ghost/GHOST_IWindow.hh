@@ -351,6 +351,15 @@ class GHOST_IWindow {
   virtual float getNativePixelSize() = 0;
 
   /**
+   * Native OS window handle (NSWindow * on macOS, HWND on Windows).
+   * Used by Agent Space to overlay a WebView on the region.
+   */
+  virtual void *getOSWindow() const
+  {
+    return nullptr;
+  }
+
+  /**
    * Returns the recommended DPI for this window.
    * \return The recommended DPI for this window.
    */

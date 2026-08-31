@@ -1174,6 +1174,15 @@ SpaceProject *CTX_wm_space_project(const bContext *C)
   return nullptr;
 }
 
+SpaceAgent *CTX_wm_space_agent(const bContext *C)
+{
+  ScrArea *area = CTX_wm_area(C);
+  if (area && area->spacetype == SPACE_AGENT) {
+    return static_cast<SpaceAgent *>(area->spacedata.first);
+  }
+  return nullptr;
+}
+
 void CTX_wm_manager_set(bContext *C, wmWindowManager *wm)
 {
   C->wm.manager = wm;
