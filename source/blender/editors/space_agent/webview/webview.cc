@@ -21,17 +21,83 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <fstream>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace blender::ed::agent {
 
 static Map<const SpaceAgent *, std::unique_ptr<AgentWebView>> g_webviews;
 
+/** Ensure the Agent embed query is present (auth file may already include it). */
+static std::string ensure_embed_query(std::string url)
+{
+  while (!url.empty() && (url.back() == '\n' || url.back() == '\r' || url.back() == ' ')) {
+    url.pop_back();
+  }
+  if (url.empty()) {
+    return url;
+  }
+  if (url.find("embed=") == std::string::npos) {
+    url += (url.find('?') == std::string::npos) ? "?embed=blender-agent" :
+                                                  "&embed=blender-agent";
+  }
+  return url;
+}
+
+/**
+ * Path written by vibe3d/plugin when dsh web becomes ready:
+ * `$DSH_HOME/profiles/$DSH_PROFILE/agent-auth.url` (defaults: ~/.dsh, vibe3d).
+ */
+static bool read_agent_auth_url_file(std::string &out)
+{
+  const char *dsh_home_env = std::getenv("DSH_HOME");
+  const char *profile_env = std::getenv("DSH_PROFILE");
+  const char *home = std::getenv("HOME");
+  std::string path;
+  if (dsh_home_env && dsh_home_env[0]) {
+    path = dsh_home_env;
+  }
+  else if (home && home[0]) {
+    path = std::string(home) + "/.dsh";
+  }
+  else {
+    return false;
+  }
+  path += "/profiles/";
+  path += (profile_env && profile_env[0]) ? profile_env : "vibe3d";
+  path += "/agent-auth.url";
+
+  std::ifstream in(path);
+  if (!in) {
+    return false;
+  }
+  std::string line;
+  if (!std::getline(in, line)) {
+    return false;
+  }
+  line = ensure_embed_query(std::move(line));
+  if (line.empty() || line.rfind("http", 0) != 0) {
+    return false;
+  }
+  out = std::move(line);
+  return true;
+}
+
 void agent_default_url(char *dst, int dst_max)
 {
   const char *env = std::getenv("VIBE3D_AGENT_URL");
-  BLI_strncpy(dst, (env && env[0]) ? env : AGENT_DEFAULT_URL, dst_max);
+  if (env && env[0]) {
+    BLI_strncpy(dst, ensure_embed_query(env).c_str(), dst_max);
+    return;
+  }
+  std::string from_file;
+  if (read_agent_auth_url_file(from_file)) {
+    BLI_strncpy(dst, from_file.c_str(), dst_max);
+    return;
+  }
+  BLI_strncpy(dst, AGENT_DEFAULT_URL, dst_max);
 }
 
 /** Software placeholder until CEF OSR is linked. Fills a dark BGRA buffer. */
@@ -107,9 +173,9 @@ AgentWebView *agent_webview_ensure(SpaceAgent *sagent, wmWindow * /*win*/)
     return existing;
   }
   std::unique_ptr<AgentWebView> view = agent_webview_create();
-  if (sagent->url[0] == '\0') {
-    agent_default_url(sagent->url, SPACE_AGENT_URL_MAX);
-  }
+  /* Prefer the launch URL published by dsh web (token + embed) over a stale
+   * editor URL saved without authentication. */
+  agent_default_url(sagent->url, SPACE_AGENT_URL_MAX);
   view->load_url(sagent->url);
   AgentWebView *ptr = view.get();
   g_webviews.add(sagent, std::move(view));

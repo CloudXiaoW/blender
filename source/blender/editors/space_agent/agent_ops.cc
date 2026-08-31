@@ -28,9 +28,8 @@ static wmOperatorStatus agent_reload_exec(bContext *C, wmOperator * /*op*/)
   if (sagent == nullptr) {
     return OPERATOR_CANCELLED;
   }
-  if (sagent->url[0] == '\0') {
-    ed::agent::agent_default_url(sagent->url, SPACE_AGENT_URL_MAX);
-  }
+  /* Re-resolve so a freshly written dsh launch token is picked up after auth. */
+  ed::agent::agent_default_url(sagent->url, SPACE_AGENT_URL_MAX);
   if (ed::agent::AgentWebView *view = ed::agent::agent_webview_ensure(sagent, CTX_wm_window(C))) {
     view->load_url(sagent->url);
   }
