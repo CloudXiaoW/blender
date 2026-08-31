@@ -2172,6 +2172,11 @@ void DepsgraphNodeBuilder::build_material(Material *material)
 
 void DepsgraphNodeBuilder::build_materials(Material **materials, int num_materials)
 {
+  /* Objects can transiently have totcol > 0 with a null mat array after
+   * Python/import material-slot edits; skip instead of crashing the builder. */
+  if (materials == nullptr || num_materials <= 0) {
+    return;
+  }
   for (int i = 0; i < num_materials; i++) {
     if (materials[i] == nullptr) {
       continue;

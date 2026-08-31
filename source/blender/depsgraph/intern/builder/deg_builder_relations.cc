@@ -3254,6 +3254,10 @@ void DepsgraphRelationBuilder::build_material(Material *material, ID *owner)
 
 void DepsgraphRelationBuilder::build_materials(ID *owner, Material **materials, int num_materials)
 {
+  /* See DepsgraphNodeBuilder::build_materials — guard null mat arrays. */
+  if (materials == nullptr || num_materials <= 0) {
+    return;
+  }
   for (int i = 0; i < num_materials; i++) {
     if (materials[i] == nullptr) {
       continue;
