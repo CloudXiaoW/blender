@@ -38,6 +38,12 @@ AgentWebView *agent_webview_get(SpaceAgent *sagent);
 void agent_webview_free(SpaceAgent *sagent);
 
 void agent_default_url(char *dst, int dst_max);
+/**
+ * Bind the Agent WebView URL to the current .blend identity (`project=` query).
+ * Reloads the page when the project key changes so the client can restore or
+ * create the matching conversation.
+ */
+void agent_sync_project(SpaceAgent *sagent, wmWindow *win);
 
 void agent_main_region_draw(const bContext *C, ARegion *region);
 

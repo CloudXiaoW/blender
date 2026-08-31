@@ -28,6 +28,7 @@ void agent_main_region_draw(const bContext *C, ARegion *region)
 
   SpaceAgent *sagent = CTX_wm_space_agent(C);
   wmWindow *win = CTX_wm_window(C);
+  agent_sync_project(sagent, win);
   AgentWebView *view = agent_webview_ensure(sagent, win);
   if (view) {
     view->set_visible(true);

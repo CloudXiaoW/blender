@@ -10,6 +10,7 @@
 
 #include "BLI_listbase.hh"
 #include "BLI_string.hh"
+#include "BLI_utildefines.hh"
 
 #include <memory>
 
@@ -96,6 +97,21 @@ static void agent_keymap(wmKeyConfig *keyconf)
   WM_keymap_ensure(keyconf, "Agent", SPACE_AGENT, RGN_TYPE_WINDOW);
 }
 
+static void agent_listener(const wmSpaceTypeListenerParams *params)
+{
+  ScrArea *area = params->area;
+  const wmNotifier *wmn = params->notifier;
+  if (area == nullptr || wmn == nullptr || wmn->category != NC_WM) {
+    return;
+  }
+  if (!ELEM(wmn->data, ND_FILEREAD, ND_FILESAVE)) {
+    return;
+  }
+  SpaceAgent *sagent = static_cast<SpaceAgent *>(area->spacedata.first);
+  ed::agent::agent_sync_project(sagent, params->window);
+  ED_area_tag_redraw(area);
+}
+
 static void agent_space_blend_write(BlendWriter *writer, SpaceLink *sl)
 {
   writer->write_struct_cast<SpaceAgent>(sl);
@@ -134,6 +150,7 @@ void ED_spacetype_agent()
   st->duplicate = agent_duplicate;
   st->operatortypes = agent_operatortypes;
   st->keymap = agent_keymap;
+  st->listener = agent_listener;
   st->blend_write = agent_space_blend_write;
 
   art = MEM_new_zeroed<ARegionType>("spacetype agent region");

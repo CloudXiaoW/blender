@@ -5,6 +5,9 @@
 #include "agent_intern.hh"
 #include "webview/webview.hh"
 
+#include "BKE_main.hh"
+
+#include "BLI_hash_mm2a.hh"
 #include "BLI_map.hh"
 #include "BLI_rect.hh"
 #include "BLI_string.hh"
@@ -20,6 +23,7 @@
 #include "MEM_guardedalloc.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <memory>
@@ -30,12 +34,20 @@ namespace blender::ed::agent {
 
 static Map<const SpaceAgent *, std::unique_ptr<AgentWebView>> g_webviews;
 
-/** Ensure the Agent embed query is present (auth file may already include it). */
-static std::string ensure_embed_query(std::string url)
+/** Opaque key shared with the embed client (`?project=`). */
+static constexpr const char *AGENT_PROJECT_UNSAVED = "__unsaved__";
+
+static void trim_url_whitespace(std::string &url)
 {
   while (!url.empty() && (url.back() == '\n' || url.back() == '\r' || url.back() == ' ')) {
     url.pop_back();
   }
+}
+
+/** Ensure the Agent embed query is present (auth file may already include it). */
+static std::string ensure_embed_query(std::string url)
+{
+  trim_url_whitespace(url);
   if (url.empty()) {
     return url;
   }
@@ -44,6 +56,118 @@ static std::string ensure_embed_query(std::string url)
                                                   "&embed=blender-agent";
   }
   return url;
+}
+
+static std::string percent_encode(const std::string &value)
+{
+  std::string out;
+  out.reserve(value.size() * 3);
+  for (unsigned char c : value) {
+    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' ||
+        c == '_' || c == '.' || c == '~' || c == '/')
+    {
+      out.push_back(char(c));
+    }
+    else {
+      char buf[4];
+      snprintf(buf, sizeof(buf), "%%%02X", c);
+      out.append(buf);
+    }
+  }
+  return out;
+}
+
+static std::string query_value(const std::string &url, const char *key)
+{
+  const std::string needle = std::string(key) + "=";
+  const size_t q = url.find('?');
+  if (q == std::string::npos) {
+    return {};
+  }
+  size_t pos = q + 1;
+  while (pos < url.size()) {
+    const size_t amp = url.find('&', pos);
+    const size_t end = (amp == std::string::npos) ? url.size() : amp;
+    if (url.compare(pos, needle.size(), needle) == 0) {
+      return url.substr(pos + needle.size(), end - (pos + needle.size()));
+    }
+    if (amp == std::string::npos) {
+      break;
+    }
+    pos = amp + 1;
+  }
+  return {};
+}
+
+static std::string strip_query_key(std::string url, const char *key)
+{
+  const std::string needle = std::string(key) + "=";
+  const size_t q = url.find('?');
+  if (q == std::string::npos) {
+    return url;
+  }
+  std::string out = url.substr(0, q);
+  std::string kept;
+  size_t pos = q + 1;
+  while (pos < url.size()) {
+    const size_t amp = url.find('&', pos);
+    const size_t end = (amp == std::string::npos) ? url.size() : amp;
+    const std::string part = url.substr(pos, end - pos);
+    if (part.rfind(needle, 0) != 0) {
+      if (!kept.empty()) {
+        kept.push_back('&');
+      }
+      kept.append(part);
+    }
+    if (amp == std::string::npos) {
+      break;
+    }
+    pos = amp + 1;
+  }
+  if (!kept.empty()) {
+    out.push_back('?');
+    out.append(kept);
+  }
+  return out;
+}
+
+static std::string current_project_key()
+{
+  const char *path = BKE_main_blendfile_path_from_global();
+  if (path == nullptr || path[0] == '\0') {
+    return AGENT_PROJECT_UNSAVED;
+  }
+  return path;
+}
+
+/**
+ * Attach/replace `project=` so the embed client can bind conversations per .blend.
+ * Falls back to a short hash when the absolute path would overflow #SPACE_AGENT_URL_MAX.
+ */
+static std::string apply_project_query(std::string url, const std::string &project_key)
+{
+  url = ensure_embed_query(std::move(url));
+  url = strip_query_key(std::move(url), "project");
+  const std::string encoded = percent_encode(project_key);
+  std::string with_path = url;
+  with_path += (with_path.find('?') == std::string::npos) ? "?project=" : "&project=";
+  with_path.append(encoded);
+  if (int(with_path.size()) < SPACE_AGENT_URL_MAX) {
+    return with_path;
+  }
+  /* Path too long for DNA url[] — use a stable short fingerprint. */
+  BLI_HashMurmur2A hasher;
+  BLI_hash_mm2a_init(&hasher, 0);
+  BLI_hash_mm2a_add(&hasher,
+                    reinterpret_cast<const unsigned char *>(project_key.data()),
+                    project_key.size());
+  const uint32_t digest = BLI_hash_mm2a_end(&hasher);
+  char short_key[32];
+  snprintf(short_key, sizeof(short_key), "h%08x", digest);
+  std::string with_hash = url;
+  with_hash += (with_hash.find('?') == std::string::npos) ? "?project=" : "&project=";
+  with_hash.append(short_key);
+  return with_hash;
 }
 
 /**
@@ -87,17 +211,37 @@ static bool read_agent_auth_url_file(std::string &out)
 
 void agent_default_url(char *dst, int dst_max)
 {
+  std::string url;
   const char *env = std::getenv("VIBE3D_AGENT_URL");
   if (env && env[0]) {
-    BLI_strncpy(dst, ensure_embed_query(env).c_str(), dst_max);
+    url = ensure_embed_query(env);
+  }
+  else if (!read_agent_auth_url_file(url)) {
+    url = AGENT_DEFAULT_URL;
+  }
+  url = apply_project_query(std::move(url), current_project_key());
+  BLI_strncpy(dst, url.c_str(), dst_max);
+}
+
+void agent_sync_project(SpaceAgent *sagent, wmWindow *win)
+{
+  if (sagent == nullptr) {
     return;
   }
-  std::string from_file;
-  if (read_agent_auth_url_file(from_file)) {
-    BLI_strncpy(dst, from_file.c_str(), dst_max);
+  char next_url[SPACE_AGENT_URL_MAX];
+  agent_default_url(next_url, SPACE_AGENT_URL_MAX);
+  const std::string next_project = query_value(next_url, "project");
+  const std::string cur_project = query_value(sagent->url, "project");
+  if (next_project == cur_project && sagent->url[0] != '\0') {
     return;
   }
-  BLI_strncpy(dst, AGENT_DEFAULT_URL, dst_max);
+  BLI_strncpy(sagent->url, next_url, SPACE_AGENT_URL_MAX);
+  if (AgentWebView *view = agent_webview_get(sagent)) {
+    view->load_url(sagent->url);
+  }
+  else if (win != nullptr) {
+    agent_webview_ensure(sagent, win);
+  }
 }
 
 /** Software placeholder until CEF OSR is linked. Fills a dark BGRA buffer. */
@@ -173,8 +317,7 @@ AgentWebView *agent_webview_ensure(SpaceAgent *sagent, wmWindow * /*win*/)
     return existing;
   }
   std::unique_ptr<AgentWebView> view = agent_webview_create();
-  /* Prefer the launch URL published by dsh web (token + embed) over a stale
-   * editor URL saved without authentication. */
+  /* Auth URL + project= so the embed client can restore/create the right chat. */
   agent_default_url(sagent->url, SPACE_AGENT_URL_MAX);
   view->load_url(sagent->url);
   AgentWebView *ptr = view.get();
