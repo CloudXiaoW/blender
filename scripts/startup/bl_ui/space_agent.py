@@ -32,12 +32,19 @@ class AGENT_MT_editor_menus(Menu):
         layout.menu("INFO_MT_area")
 
 
+def _window_region(area):
+    for candidate in area.regions:
+        if candidate.type == 'WINDOW':
+            return candidate
+    return None
+
+
 class SCREEN_OT_agent_new(Operator):
     """Split the 3D Viewport and open the Agent conversation on the right."""
 
     bl_idname = "screen.agent_new"
     bl_label = "New Agent"
-    bl_description = "Open the Agent editor beside the 3D Viewport"
+    bl_description = "Open the Agent editor, or replace the current Agent with a new conversation"
     bl_options = {'REGISTER'}
 
     def execute(self, context):
@@ -46,8 +53,20 @@ class SCREEN_OT_agent_new(Operator):
             return {'CANCELLED'}
 
         for area in screen.areas:
-            if area.type == 'AGENT':
-                return {'FINISHED'}
+            if area.type != 'AGENT':
+                continue
+            region = _window_region(area)
+            with context.temp_override(
+                window=context.window,
+                screen=screen,
+                area=area,
+                region=region,
+            ):
+                try:
+                    bpy.ops.agent.reload(new_session=True)
+                except TypeError:
+                    bpy.ops.agent.reload()
+            return {'FINISHED'}
 
         view3d = None
         for area in screen.areas:

@@ -11,6 +11,7 @@
 #include "BLI_map.hh"
 #include "BLI_rect.hh"
 #include "BLI_string.hh"
+#include "BLI_time.hh"
 
 #include "GPU_immediate.hh"
 #include "GPU_state.hh"
@@ -241,6 +242,22 @@ void agent_sync_project(SpaceAgent *sagent, wmWindow *win)
   }
   else if (win != nullptr) {
     agent_webview_ensure(sagent, win);
+  }
+}
+
+void agent_start_new_session(SpaceAgent *sagent, wmWindow *win)
+{
+  if (sagent == nullptr) {
+    return;
+  }
+  agent_default_url(sagent->url, SPACE_AGENT_URL_MAX);
+  std::string load = strip_query_key(sagent->url, "new");
+  char nonce[32];
+  snprintf(nonce, sizeof(nonce), "%lld", static_cast<long long>(BLI_time_now_seconds() * 1000.0));
+  load += (load.find('?') == std::string::npos) ? "?new=" : "&new=";
+  load.append(nonce);
+  if (AgentWebView *view = agent_webview_ensure(sagent, win)) {
+    view->load_url(load.c_str());
   }
 }
 

@@ -44,6 +44,11 @@ void agent_default_url(char *dst, int dst_max);
  * create the matching conversation.
  */
 void agent_sync_project(SpaceAgent *sagent, wmWindow *win);
+/**
+ * Reload the Agent page with a one-shot ``new=`` query so the embed client
+ * creates a fresh conversation and rebinds it to the current .blend.
+ */
+void agent_start_new_session(SpaceAgent *sagent, wmWindow *win);
 
 void agent_main_region_draw(const bContext *C, ARegion *region);
 
