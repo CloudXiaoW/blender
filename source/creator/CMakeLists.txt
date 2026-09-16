@@ -482,6 +482,23 @@ if(WITH_PYTHON)
     PATTERN "addons_core/bl_pkg/example_extension" EXCLUDE
   )
 
+  # Bundle Vibe3D MCP add-on into the app (scripts/addons_core), not the user addons dir.
+  set(_VIBE_MCP_ADDON "${CMAKE_SOURCE_DIR}/../mcp-blender/addon/blender_mcp_addon")
+  if(EXISTS "${_VIBE_MCP_ADDON}/__init__.py")
+    install(
+      DIRECTORY ${_VIBE_MCP_ADDON}/
+      DESTINATION ${TARGETDIR_VER}/scripts/addons_core/blender_mcp_addon
+      PATTERN ".git" EXCLUDE
+      PATTERN "__pycache__" EXCLUDE
+      PATTERN ".DS_Store" EXCLUDE
+      PATTERN "*.pyc" EXCLUDE
+    )
+    message(STATUS "Vibe3D: install blender_mcp_addon into addons_core")
+  else()
+    message(STATUS "Vibe3D: blender_mcp_addon not found at ${_VIBE_MCP_ADDON} (skipped)")
+  endif()
+  unset(_VIBE_MCP_ADDON)
+
   if(WITH_PYTHON_MODULE)
     install(
       FILES ${CMAKE_SOURCE_DIR}/scripts/site/sitecustomize.py
